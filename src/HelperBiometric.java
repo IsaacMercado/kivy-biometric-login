@@ -1,8 +1,8 @@
 package org.example.biometric_login;
 
-import androidx.biometric.BiometricPrompt;
+import android.hardware.biometrics.BiometricPrompt;
 
-class HelperBiometric {
+public class HelperBiometric {
     public static interface BiometricCallback {
         void onBiometricAuthenticationError(int errorCode, CharSequence errString);
 

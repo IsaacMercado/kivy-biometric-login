@@ -1,6 +1,6 @@
-from typing import Callable
+from typing import Any, Callable, NoReturn
 
-from jnius import JavaClass, PythonJavaClass, autoclass, java_method, cast
+from jnius import JavaClass, PythonJavaClass, autoclass, cast, java_method
 from kivy import platform
 from kivy.app import App
 from kivy.properties import BooleanProperty
@@ -15,7 +15,7 @@ class BiometricAuthentication(object):
         ]
         __javacontext__ = 'app'
 
-        def __init__(self, callback, *args, **kwargs):
+        def __init__(self, callback: Callable[[str, Any, Any], NoReturn], *args, **kwargs):
             self.callback = callback
             PythonJavaClass.__init__(self, *args, **kwargs)
 
@@ -34,58 +34,102 @@ class BiometricAuthentication(object):
             if self.callback:
                 self.callback('failed')
 
+    class OnClickListener(PythonJavaClass):
+        __javainterfaces__ = [
+            'android/content/DialogInterface'
+            '$OnClickListener'
+        ]
+        __javacontext__ = 'app'
+
+        def __init__(self, callback: Callable[[JavaClass, int], NoReturn], *args, **kwargs):
+            self.callback = callback
+            PythonJavaClass.__init__(self, *args, **kwargs)
+
+        @java_method('(Landroid/content/DialogInterface;I)V')
+        def onClick(self, dialog: JavaClass, which: int):
+            if self.callback:
+                self.callback(dialog, which)
+
+    class OnCancelListener(PythonJavaClass):
+        __javainterfaces__ = [
+            'android/os/CancellationSignal'
+            '$OnCancelListener'
+        ]
+        __javacontext__ = 'app'
+
+        def __init__(self, callback: Callable[[], NoReturn], *args, **kwargs):
+            self.callback = callback
+            PythonJavaClass.__init__(self, *args, **kwargs)
+
+        @java_method('()V')
+        def onCancel(self):
+            if self.callback:
+                self.callback()
+
     def __init__(
         self,
-        title: str = None,
-        subtitle: str = None,
-        description: str = None,
-        allowed_authenticators: int = None,
-        confirmation_required: bool = None,
-        negative_button_text: str = None,
-        on_authentication_succeeded: Callable[[JavaClass], None] = None,
-        on_authentication_error: Callable[[int, str], None] = None,
-        on_authentication_failed: Callable[[], None] = None,
+        title: str,
+        subtitle: str,
+        description: str,
+        allowed_authenticators: int,
+        confirmation_required: bool,
+        negative_button_text: str,
+        on_authentication_succeeded: Callable[[JavaClass], NoReturn] | None = None,
+        on_authentication_error: Callable[[int, str], NoReturn] | None = None,
+        on_authentication_failed: Callable[[], NoReturn] | None = None,
     ):
         super().__init__()
         self.allowed_authenticators = allowed_authenticators
 
-        PromptInfoBuilder = autoclass(
-            'androidx.biometric'
+        PythonActivity = autoclass(
+            'org.kivy.android.PythonActivity'
+        )
+        PromptBuilder = autoclass(
+            'android.hardware.biometrics'
             '.BiometricPrompt'
-            '$PromptInfo$Builder'
+            '$Builder'
         )
         BiometricCallbackImpl = autoclass(
             'org.example.biometric_login'
-            '.HelperBiometric$BiometricCallbackImpl'
+            '.HelperBiometric'
+            '$BiometricCallbackImpl'
         )
+        Context = autoclass('android.content.Context')
+        Executors = autoclass('java.util.concurrent.Executors')
 
-        prompt_info_builder = PromptInfoBuilder()
+        context = PythonActivity.mActivity.getApplicationContext()
+        prompt_builder = PromptBuilder(context)
 
         if title:
-            prompt_info_builder.setTitle(title)
+            prompt_builder = prompt_builder.setTitle(title)
 
         if subtitle:
-            prompt_info_builder.setSubtitle(subtitle)
+            prompt_builder = prompt_builder.setSubtitle(subtitle)
 
         if description:
-            prompt_info_builder.setDescription(description)
+            prompt_builder = prompt_builder.setDescription(description)
 
         if allowed_authenticators:
-            prompt_info_builder.setAllowedAuthenticators(
+            prompt_builder = prompt_builder.setAllowedAuthenticators(
                 allowed_authenticators
             )
 
         if confirmation_required:
-            prompt_info_builder.setConfirmationRequired(
+            prompt_builder = prompt_builder.setConfirmationRequired(
                 confirmation_required
             )
 
         if negative_button_text:
-            prompt_info_builder.setNegativeButtonText(
-                negative_button_text
+            executor = Executors.newSingleThreadExecutor()
+            prompt_builder = prompt_builder.setNegativeButton(
+                negative_button_text,
+                executor,
+                BiometricAuthentication.OnClickListener(
+                    lambda dialog, which: print(dialog, which)
+                )
             )
 
-        self.prompt_info = prompt_info_builder.build()
+        self.prompt = prompt_builder.build()
 
         def __callback(status, *args):
             if status == 'success':
@@ -102,24 +146,29 @@ class BiometricAuthentication(object):
         )
 
     def authenticate(self):
-        mActivity = autoclass("org.kivy.android.PythonActivity").mActivity
-        ContextCompat = autoclass('androidx.core.content.ContextCompat')
-        BiometricPrompt = autoclass('androidx.biometric.BiometricPrompt')
-        executor = ContextCompat.getMainExecutor(mActivity)
-
-        biometric_prompt = BiometricPrompt(
-            cast('androidx.appcompat.app.AppCompatActivity', mActivity),
+        Executors = autoclass('java.util.concurrent.Executors')
+        Context = autoclass('android.content.Context')
+        CancellationSignal = autoclass('android.os.CancellationSignal')
+        executor = Executors.newSingleThreadExecutor()
+        self.prompt.authenticate(
+            CancellationSignal(),
             executor,
             self.authentication_callback,
         )
-        biometric_prompt.authenticate(self.prompt_info)
 
     def can_authenticate(self):
-        BiometricManager = autoclass('androidx.biometric.BiometricManager')
-        mActivity = autoclass("org.kivy.android.PythonActivity").mActivity
-        biometric_manager = getattr(BiometricManager, 'from')(mActivity)
+        BiometricManager = autoclass(
+            'android.hardware.biometrics.BiometricManager'
+        )
+        PythonActivity = autoclass(
+            'org.kivy.android.PythonActivity'
+        )
+
+        context = PythonActivity.mActivity.getApplicationContext()
+        biometric_manager = context.getSystemService(BiometricManager._class)
+
         return biometric_manager.canAuthenticate(
-            # self.allowed_authenticators
+            self.allowed_authenticators
         )
 
 
@@ -145,14 +194,15 @@ class BiometricLoginApp(App):
             title='Biometric Authentication',
             subtitle='Subtitle',
             description='Description',
-            # allowed_authenticators=Authenticators.BIOMETRIC_STRONG,
+            allowed_authenticators=Authenticators.BIOMETRIC_STRONG,
             confirmation_required=True,
             negative_button_text='Cancel',
             on_authentication_succeeded=lambda result: setattr(
                 self, 'is_authenticated', True
             ),
         )
-        if biometric_authentication.can_authenticate():
+
+        if biometric_authentication.can_authenticate() == 0:
             biometric_authentication.authenticate()
 
 
