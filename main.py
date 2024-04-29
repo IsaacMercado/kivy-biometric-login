@@ -5,6 +5,32 @@ from kivy import platform
 from kivy.app import App
 from kivy.properties import BooleanProperty
 from kivy.uix.button import Button
+from kivy.uix.widget import Widget
+
+
+def hide_widget(widget: Widget, dohide=True):
+    if hasattr(widget, 'saved_attrs'):
+        if not dohide:
+            (
+                widget.height,
+                widget.size_hint_y,
+                widget.opacity,
+                widget.disabled,
+            ) = widget.saved_attrs
+            del widget.saved_attrs
+    elif dohide:
+        widget.saved_attrs = (
+            widget.height,
+            widget.size_hint_y,
+            widget.opacity,
+            widget.disabled,
+        )
+        (
+            widget.height,
+            widget.size_hint_y,
+            widget.opacity,
+            widget.disabled,
+        ) = 0, None, 0, True
 
 
 class BiometricAuthentication(object):
@@ -94,7 +120,6 @@ class BiometricAuthentication(object):
             '.HelperBiometric'
             '$BiometricCallbackImpl'
         )
-        Context = autoclass('android.content.Context')
         Executors = autoclass('java.util.concurrent.Executors')
 
         context = PythonActivity.mActivity.getApplicationContext()
@@ -147,7 +172,6 @@ class BiometricAuthentication(object):
 
     def authenticate(self):
         Executors = autoclass('java.util.concurrent.Executors')
-        Context = autoclass('android.content.Context')
         CancellationSignal = autoclass('android.os.CancellationSignal')
         executor = Executors.newSingleThreadExecutor()
         self.prompt.authenticate(
@@ -175,11 +199,6 @@ class BiometricAuthentication(object):
 class BiometricLoginApp(App):
     is_authenticated = BooleanProperty(False)
 
-    def build(self):
-        button = Button(text='Authenticate')
-        button.bind(on_press=self.autenticate)
-        return button
-
     def on_is_authenticated(self, instance, value):
         if value:
             print('Authenticated')
@@ -191,9 +210,9 @@ class BiometricLoginApp(App):
             '$Authenticators'
         )
         biometric_authentication = BiometricAuthentication(
-            title='Biometric Authentication',
-            subtitle='Subtitle',
-            description='Description',
+            title='Sample App Authentication',
+            subtitle='Please login to get access',
+            description='Sample App is using Android biometric authentication',
             allowed_authenticators=Authenticators.BIOMETRIC_STRONG,
             confirmation_required=True,
             negative_button_text='Cancel',
