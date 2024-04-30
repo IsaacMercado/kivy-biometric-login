@@ -2,3 +2,7 @@ kivy==2.3.0
 buildozer==1.5.0
 pyjnius==1.6.1
 Cython==3.0.10
+fastapi==0.110.3
+pySETO==1.7.8
+cryptography==42.0.5
+passlib[bcrypt]==1.7.4
