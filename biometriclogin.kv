@@ -1,3 +1,70 @@
+<LoginScreen>:
+    biometric_label: biometric_label
+
+    BoxLayout:
+        id: layout_login
+        orientation: 'vertical'
+        padding: '50dp'
+
+        Label:
+            text: 'Biometric Login Sample'
+            font_size: 24
+
+        BoxLayout:
+            id: layout_center_login
+            orientation: 'vertical'
+
+            Label:
+                text: 'Phone number, email or username'
+                text_size: layout_center_login.width, None
+                size: self.texture_size
+
+            TextInput:
+                multiline: False
+                focus: True
+
+            Label:
+                text: 'Password'
+                text_size: layout_center_login.width, None
+                size: self.texture_size
+
+            TextInput:
+                multiline: False
+                focus: True
+                password: True
+
+            Widget:
+
+            Button:
+                text: 'LOGIN'
+                on_press: root.login()
+
+            Label:
+                id: biometric_label
+                markup: True
+                text: '[ref=biometrics]Use biometrics[/ref]'
+                color: 0.2, 0.6, 1, 1
+                text_size: layout_center_login.width, None
+                size: self.texture_size
+
+        Widget:
+
+
+<MainScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: '50dp'
+
+        Widget:
+
+        Button:
+            text: 'LOGOUT'
+            size_hint_y: 0.1
+            on_press: root.logout()
+
+        Widget:
+
+
 BoxLayout:
     orientation: 'vertical'
 
@@ -14,52 +81,8 @@ BoxLayout:
     ScreenManager:
         id: screen_manager
 
-        Screen:
+        LoginScreen:
             name: "login"
 
-            BoxLayout:
-                id: layout_login
-                orientation: 'vertical'
-                padding: '50dp'
-
-                Label:
-                    text: 'Biometric Login Sample'
-                    font_size: 24
-    
-                BoxLayout:
-                    id: layout_center_login
-                    orientation: 'vertical'
-
-                    Label:
-                        text: 'Phone number, email or username'
-                        text_size: layout_center_login.width, None
-                        size: self.texture_size
-
-                    TextInput:
-                        multiline: False
-                        focus: True
-
-                    Label:
-                        text: 'Password'
-                        text_size: layout_center_login.width, None
-                        size: self.texture_size
-
-                    TextInput:
-                        multiline: False
-                        focus: True
-
-                    Widget:
-
-                    Button:
-                        text: 'LOGIN'
-
-                    Label:
-                        markup: True
-                        text: 'Use biometrics'
-                        color: 0.2, 0.6, 1, 1
-                        text_size: layout_center_login.width, None
-                        size: self.texture_size
-                        on_touch_down: print("Hola mundo")
-
-                Widget:
-
+        MainScreen:
+            name: "main"
