@@ -1,3 +1,4 @@
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey, _CURVE_TYPES
 import base64
 from enum import IntFlag
 from typing import Any, Callable, NoReturn
@@ -42,11 +43,11 @@ class BiometricManager:
         BIOMETRIC_WEAK = _BiometricManager.Authenticators.BIOMETRIC_WEAK
         DEVICE_CREDENTIAL = _BiometricManager.Authenticators.DEVICE_CREDENTIAL
 
-    BIOMETRIC_ERROR_HW_UNAVAILABLE = _BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE
-    BIOMETRIC_ERROR_NONE_ENROLLED = _BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED
-    BIOMETRIC_ERROR_NO_HARDWARE = _BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
-    BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED = _BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED
-    BIOMETRIC_SUCCESS = _BiometricManager.BIOMETRIC_SUCCESS
+    BIOMETRIC_ERROR_HW_UNAVAILABLE: int = _BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE
+    BIOMETRIC_ERROR_NONE_ENROLLED: int = _BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED
+    BIOMETRIC_ERROR_NO_HARDWARE: int = _BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
+    BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED: int = _BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED
+    BIOMETRIC_SUCCESS: int = _BiometricManager.BIOMETRIC_SUCCESS
 
     def __init__(self) -> None:
         context = PythonActivity.mActivity.getApplicationContext()
@@ -216,7 +217,7 @@ KeyPairGenerator = autoclass(
     '.KeyPairGenerator'
 )
 KeyGenParameterSpecBuilder = autoclass(
-    'security.keystore'
+    'android.security.keystore'
     '.KeyGenParameterSpec'
     '$Builder'
 )
@@ -286,11 +287,11 @@ class CryptographyManager(object):
 
     def get_PEM_public_key(self):
         encoded = self.get_public_key().getEncoded()
-        return (
-            '-----BEGIN PUBLIC KEY-----\n'
-            f'{base64.b64encode(bytes(encoded)).decode('ascii')}\n'
-            '-----END PUBLIC KEY-----'
-        )
+        return '\n'.join((
+            '-----BEGIN PUBLIC KEY-----',
+            base64.b64encode(bytearray(encoded)).decode('ascii'),
+            '-----END PUBLIC KEY-----',
+        ))
 
     def get_signature(self):
         signature = Signature.getInstance(self.algorithm)

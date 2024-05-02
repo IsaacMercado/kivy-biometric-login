@@ -242,7 +242,7 @@ async def save_public_key(
     return current_user
 
 
-@app.get("/users/challenge")
+@app.post("/users/challenge")
 async def get_challenge(username: str):
     word = secrets.token_bytes(32)
     fake_users_db.update(
@@ -252,8 +252,8 @@ async def get_challenge(username: str):
     return {"challenge": word}
 
 
-@app.post("/users/challenge")
-async def verify_challenge(username: str, signature: str):
+@app.post("/users/verify/challenge")
+async def verify_challenge(username: str, signature: str) -> Token:
     data_user = get_user(fake_users_db, username)
 
     if not data_user:

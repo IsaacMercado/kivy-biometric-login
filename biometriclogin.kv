@@ -1,5 +1,6 @@
 <LoginScreen>:
     biometric_label: biometric_label
+    data_form: {'username': username.text, 'password': password.text}
 
     BoxLayout:
         id: layout_login
@@ -20,6 +21,7 @@
                 size: self.texture_size
 
             TextInput:
+                id: username
                 multiline: False
                 focus: True
 
@@ -29,6 +31,7 @@
                 size: self.texture_size
 
             TextInput:
+                id: password
                 multiline: False
                 focus: True
                 password: True

@@ -1,9 +1,14 @@
+from urllib.parse import urljoin
+
+import httpx
 from kivy import platform
 from kivy.app import App
-from kivy.properties import BooleanProperty, ObjectProperty
+from kivy.properties import BooleanProperty, DictProperty, ObjectProperty
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen
 from kivy.uix.widget import Widget
+
+client = httpx.Client(base_url='http://localhost:8000')
 
 
 def hide_widget(widget: Widget, dohide=True):
@@ -36,8 +41,11 @@ class LoginScreen(Screen):
     biometric_prompt = ObjectProperty()
     biometric_crypto_manager = ObjectProperty()
     biometric_key_name: str = 'biometric_login'
+    data_form: dict = DictProperty({
+        'username': None,
+        'password': None,
+    })
     allows_biometric_auth: bool = BooleanProperty(False)
-    is_authenticated: bool = BooleanProperty(False)
 
     def __init__(self, **kw):
         super().__init__(**kw)
@@ -81,22 +89,47 @@ class LoginScreen(Screen):
                     allowed_authenticators=BiometricManager.Authenticators.BIOMETRIC_STRONG,
                     confirmation_required=True,
                     negative_button_text='Cancel',
-                    on_authentication_succeeded=lambda result: self.go_main(),
+                    on_authentication_succeeded=self.on_authentication_succeeded,
                 )
                 self.biometric_crypto_manager = CryptographyManager(
                     self.biometric_key_name,
                 )
 
+    def on_authentication_succeeded(self, result):
+        signature = result.getCryptoObject().getSignature()
+        username = self.data_form['username']
+
+        httpx.Client
+        httpx.AsyncClient
+
+        response = client.post(
+            "/users/challenge",
+            data={'username': username},
+        )
+        challenge: str = response.json()['challenge']
+
+        signature.update(challenge.encode())
+        sign = signature.sign()
+
+        response = client.post(
+            "/users/verify/challenge",
+            data={
+                'username': username,
+                'signature': bytes(sign).decode(),
+            },
+        )
+
+        if response.status_code == 200:
+            self.go_main()
+
     def authenticate(self):
         if platform == 'android' and self.biometric_prompt:
-            if self.biometric_crypto_manager:
-                self.biometric_prompt.authenticate(
-                    self.biometric_crypto_manager.get_crypto_object()
-                )
-            else:
-                self.biometric_prompt.authenticate()
+            self.biometric_prompt.authenticate(
+                self.biometric_crypto_manager,
+            )
 
     def login(self):
+        print(self.data_form)
         self.go_main()
 
 
