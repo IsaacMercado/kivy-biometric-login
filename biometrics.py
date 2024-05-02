@@ -1,7 +1,8 @@
+import base64
 from enum import IntFlag
 from typing import Any, Callable, NoReturn
 
-from jnius import JavaClass, PythonJavaClass, autoclass, java_method
+from jnius import JavaClass, PythonJavaClass, autoclass, cast, java_method
 
 BiometricCallbackImpl = autoclass(
     'org.example.biometric_login'
@@ -172,7 +173,7 @@ class BiometricPrompt(object):
         if self.__cancel_signal and not self.__cancel_signal.isCanceled():
             self.__cancel_signal.cancel()
 
-    def authenticate(self):
+    def authenticate(self, crypto_object: JavaClass | None = None):
         executor = Executors.newSingleThreadExecutor()
         self.__cancel_signal = CancellationSignal()
 
@@ -181,10 +182,121 @@ class BiometricPrompt(object):
                 BiometricPrompt.OnCancelListener(self.__on_cancel)
             )
 
-        self.__prompt.authenticate(
-            self.__cancel_signal,
-            executor,
-            self.__auth_callback,
-        )
+        if crypto_object:
+            self.__prompt.authenticate(
+                crypto_object,
+                self.__cancel_signal,
+                executor,
+                self.__auth_callback,
+            )
+        else:
+            self.__prompt.authenticate(
+                self.__cancel_signal,
+                executor,
+                self.__auth_callback,
+            )
 
         self.__cancel_signal = None
+
+
+KeyGenParameterSpec = autoclass(
+    'android.security.keystore'
+    '.KeyGenParameterSpec'
+)
+KeyProperties = autoclass(
+    'android.security.keystore'
+    '.KeyProperties'
+)
+KeyStore = autoclass(
+    'java.security'
+    '.KeyStore'
+)
+KeyPairGenerator = autoclass(
+    'java.security'
+    '.KeyPairGenerator'
+)
+KeyGenParameterSpecBuilder = autoclass(
+    'security.keystore'
+    '.KeyGenParameterSpec'
+    '$Builder'
+)
+ECGenParameterSpec = autoclass(
+    'java.security.spec'
+    '.ECGenParameterSpec'
+)
+Signature = autoclass(
+    'java.security'
+    '.Signature'
+)
+CryptoObject = autoclass(
+    'androidx.biometric'
+    '.BiometricPrompt'
+    '$CryptoObject'
+)
+
+
+class CryptographyManager(object):
+    key_store = "AndroidKeyStore"
+    algorithm = "SHA256withECDSA"
+    digest = KeyProperties.DIGEST_SHA256
+    spec = ECGenParameterSpec("secp256r1")
+
+    def __init__(self, key_name: str) -> None:
+        super().__init__()
+        self.__key_name = key_name
+
+        if self.get_private_key() is None:
+            self.generate_secret_key()
+
+    def generate_secret_key(self):
+        keygen_builder = KeyGenParameterSpecBuilder(
+            self.__key_name,
+            KeyProperties.PURPOSE_SIGN,
+        )
+        keygen_builder.setDigests(self.digest)
+        keygen_builder.setAlgorithmParameterSpec(self.spec)
+        keygen_builder.setUserAuthenticationRequired(True)
+        # keygen_builder.setInvalidatedByBiometricEnrollment(True)
+        keygen_spec = keygen_builder.build()
+
+        key_generator = KeyPairGenerator.getInstance(
+            KeyProperties.KEY_ALGORITHM_EC,
+            self.android_key_store
+        )
+
+        key_generator.init(keygen_spec)
+        return key_generator.generateKeyPair()
+
+    def get_private_key(self):
+        key_store = KeyStore.getInstance(self.android_key_store)
+
+        # Before the keystore can be accessed, it must be loaded.
+        key_store.load(None)
+        return key_store.getKey(self.__key_name, None)
+
+    def get_certificate(self):
+        key_store = KeyStore.getInstance(self.android_key_store)
+
+        # Before the keystore can be accessed, it must be loaded.
+        key_store.load(None)
+        return key_store.getCertificate(self.__key_name)
+
+    def get_public_key(self):
+        return self.get_certificate().getPublicKey()
+
+    def get_PEM_public_key(self):
+        encoded = self.get_public_key().getEncoded()
+        return (
+            '-----BEGIN PUBLIC KEY-----\n'
+            f'{base64.b64encode(bytes(encoded)).decode('ascii')}\n'
+            '-----END PUBLIC KEY-----'
+        )
+
+    def get_signature(self):
+        signature = Signature.getInstance(self.algorithm)
+        key = self.get_private_key()
+        signature.initSign(key)
+        return signature
+
+    def get_crypto_object(self):
+        return CryptoObject(self.get_signature())

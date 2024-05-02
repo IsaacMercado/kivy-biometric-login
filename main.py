@@ -34,6 +34,8 @@ def hide_widget(widget: Widget, dohide=True):
 class LoginScreen(Screen):
     biometric_label: Label | None = ObjectProperty()
     biometric_prompt = ObjectProperty()
+    biometric_crypto_manager = ObjectProperty()
+    biometric_key_name: str = 'biometric_login'
     allows_biometric_auth: bool = BooleanProperty(False)
     is_authenticated: bool = BooleanProperty(False)
 
@@ -59,10 +61,16 @@ class LoginScreen(Screen):
 
     def on_pre_enter(self, *args):
         if platform == 'android':
-            from biometrics import BiometricManager, BiometricPrompt
-            bio_manager = BiometricManager()
+            from android.permissions import (Permission, check_permission,
+                                             request_permissions)
 
-            if bio_manager.can_authenticate(
+            from biometrics import (BiometricManager, BiometricPrompt,
+                                    CryptographyManager)
+
+            if not check_permission(Permission.USE_BIOMETRIC):
+                request_permissions([Permission.USE_BIOMETRIC])
+
+            if BiometricManager().can_authenticate(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG
             ) == BiometricManager.BIOMETRIC_SUCCESS:
                 self.allows_biometric_auth = True
@@ -75,10 +83,18 @@ class LoginScreen(Screen):
                     negative_button_text='Cancel',
                     on_authentication_succeeded=lambda result: self.go_main(),
                 )
+                self.biometric_crypto_manager = CryptographyManager(
+                    self.biometric_key_name,
+                )
 
     def authenticate(self):
         if platform == 'android' and self.biometric_prompt:
-            self.biometric_prompt.authenticate()
+            if self.biometric_crypto_manager:
+                self.biometric_prompt.authenticate(
+                    self.biometric_crypto_manager.get_crypto_object()
+                )
+            else:
+                self.biometric_prompt.authenticate()
 
     def login(self):
         self.go_main()
